@@ -28,14 +28,14 @@ const (
 )
 
 var co2 atomic.Int32
-var raw_temperature atomic.Int32
+var rawTemperature atomic.Int32
 
 func Co2() float64 {
 	return float64(co2.Load())
 }
 
 func Temperature() float64 {
-	return math.Round((float64(raw_temperature.Load())/16.0-273.15)*100) / 100
+	return math.Round((float64(rawTemperature.Load())/16.0-273.15)*100) / 100
 }
 
 var (
@@ -145,7 +145,7 @@ func getReadings(source *os.File, key []byte, skipDecryption bool) {
 			co2.Store(value)
 		case 0x42:
 			// Got temperature reading (code 0x42)
-			raw_temperature.Store(value)
+			rawTemperature.Store(value)
 		}
 		time.Sleep(readingInterval)
 	}
