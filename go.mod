@@ -2,10 +2,7 @@ module github.com/rnurgaliyev/co2meter_exporter
 
 go 1.25
 
-require (
-	github.com/integrii/flaggy v1.8.0
-	github.com/prometheus/client_golang v1.23.2
-)
+require github.com/prometheus/client_golang v1.23.2
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect

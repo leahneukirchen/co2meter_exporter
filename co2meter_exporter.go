@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/binary"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -17,7 +18,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/integrii/flaggy"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -185,24 +185,19 @@ func logMetrics(s *envState) {
 	}
 }
 
+var deviceFlag = flag.String("d", "", "device to get readings from")
+var hostFlag = flag.String("h", "0.0.0.0", "host to bind to")
+var portFlag = flag.Int("p", 9200, "port to bind to")
+var skipDecryptionFlag = flag.Bool("skip-decryption", false, "skip value decryption. This is needed for some CO2 meter models.")
+
 func main() {
 	var key [8]byte
 	var state envState
 
-	var deviceFlag = ""
-	var bindFlag = "0.0.0.0"
-	var portFlag = 9200
-	var skipDecryptionFlag bool
+	flag.Parse()
 
-	flaggy.String(&deviceFlag, "d", "device", "Device to get readings from")
-	flaggy.String(&bindFlag, "b", "bind", "Address to listen on")
-	flaggy.Int(&portFlag, "p", "port", "Port number to listen on")
-	flaggy.Bool(&skipDecryptionFlag, "", "skipDecryption", "Skip value decryption. This is needed for some CO2 meter models.")
-	flaggy.DefaultParser.DisableShowVersionWithVersion()
-	flaggy.Parse()
-
-	if deviceFlag == "" {
-		flaggy.DefaultParser.ShowHelpAndExit("Missing device path")
+	if *deviceFlag == "" {
+		log.Fatal("missing device path")
 	}
 
 	// Generate random key
@@ -210,7 +205,7 @@ func main() {
 		key[i] = byte(rand.Intn(0xFF))
 	}
 
-	source, err := os.OpenFile(deviceFlag, os.O_RDWR, 0600)
+	source, err := os.OpenFile(*deviceFlag, os.O_RDWR, 0600)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -218,11 +213,11 @@ func main() {
 
 	hidSetReport(source, key[:])
 
-	go getReadings(source, key[:], &state, skipDecryptionFlag)
+	go getReadings(source, key[:], &state, *skipDecryptionFlag)
 	go logMetrics(&state)
 
-	log.Printf("Listening on http://%s:%d/metrics\n", bindFlag, portFlag)
+	log.Printf("Listening on http://%s:%d/metrics\n", *hostFlag, *portFlag)
 
 	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(fmt.Sprintf("%s:%d", bindFlag, portFlag), nil)
+	http.ListenAndServe(fmt.Sprintf("%s:%d", *hostFlag, *portFlag), nil)
 }
