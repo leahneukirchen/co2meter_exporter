@@ -4,12 +4,12 @@ package main
 // https://hackaday.io/project/5301-reverse-engineering-a-low-cost-usb-co-monitor/log/17909-all-your-base-are-belong-to-us
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"flag"
 	"io"
 	"log"
 	"math"
-	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -199,17 +199,14 @@ func main() {
 	if *deviceFlag == "" {
 		log.Fatal("missing device path")
 	}
-
-	// Generate random key
-	for i := range key {
-		key[i] = byte(rand.Intn(0xFF))
-	}
-
 	source, err := os.OpenFile(*deviceFlag, os.O_RDWR, 0600)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer source.Close()
+
+	// Generate random key
+	rand.Read(key[:])
 
 	hidSetReport(source, key[:])
 
