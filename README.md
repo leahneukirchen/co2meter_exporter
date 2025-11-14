@@ -26,29 +26,22 @@ at no cost!
 docker run -dt -p 2112:2112/tcp --name co2meter_exporter --restart unless-stopped --privileged imple/co2meter_exporter:latest
 ```
 
-## Downloading and building for ARMv7 (Raspberry Pi 2 and newer)
-
-```
-go get github.com/rnurgaliyev/co2meter_exporter
-env GOOS=linux GOARCH=arm go build github.com/rnurgaliyev/co2meter_exporter
-```
-
-Transfer binary to your Raspberry Pi and you are ready to go.
-
 ## Running and serving metrics
 
 ```
-~ ./co2monitor --help
-co2meter_exporter
+% ./co2monitor --help
+Usage of ./co2meter_exporter:
+  -d string
+    	device to get readings from
+  -h string
+    	host to bind to (default "::")
+  -p string
+    	port to bind to (default "9200")
+  -q	quiet mode (no periodic output)
+  -skip-decryption
+    	skip value decryption. This is needed for some CO2 meter models.
 
-  Flags:
-    -h --help             Displays help with available flag, subcommand, and positional value parameters.
-    -d --device           Device to get readings from
-    -b --bind             Address to listen on (default: 0.0.0.0)
-    -p --port             Port number to listen on (default: 9200)
-       --skipDecryption   Skip value decryption. This is needed for some CO2 meter models.
-
-~ ./co2monitor -d /dev/hidraw0 -p 2112
+% ./co2monitor -d /dev/hidraw0 -p 2112
 2020/02/03 19:07:46 Listening on http://0.0.0.0:2112/metrics
 2020/02/03 19:07:51 CO2 reading:  527
 2020/02/03 19:07:51 Temperature reading:  19.48
