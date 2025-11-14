@@ -160,13 +160,13 @@ func getReadings(source *os.File, key []byte, s *envState, skipDecryption bool) 
 
 func logMetrics(s *envState) {
 	co2Gauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "co2ppm",
-		Help: "CO2 reading in ppm.",
+		Name: "co2meter_co2_ppms",
+		Help: "CO2 reading in PPM.",
 	})
 
 	temperatureGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "temperature",
-		Help: "Temperature reading in celcius.",
+		Name: "co2meter_temperature_celsius",
+		Help: "Temperature reading in degree celsius.",
 	})
 
 	prometheus.MustRegister(temperatureGauge)
