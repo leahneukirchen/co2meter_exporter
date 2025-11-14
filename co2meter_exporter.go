@@ -6,11 +6,11 @@ package main
 import (
 	"encoding/binary"
 	"flag"
-	"fmt"
 	"io"
 	"log"
 	"math"
 	"math/rand"
+	"net"
 	"net/http"
 	"os"
 	"sync"
@@ -186,8 +186,8 @@ func logMetrics(s *envState) {
 }
 
 var deviceFlag = flag.String("d", "", "device to get readings from")
-var hostFlag = flag.String("h", "0.0.0.0", "host to bind to")
-var portFlag = flag.Int("p", 9200, "port to bind to")
+var hostFlag = flag.String("h", "::", "host to bind to")
+var portFlag = flag.String("p", "9200", "port to bind to")
 var skipDecryptionFlag = flag.Bool("skip-decryption", false, "skip value decryption. This is needed for some CO2 meter models.")
 
 func main() {
@@ -216,8 +216,8 @@ func main() {
 	go getReadings(source, key[:], &state, *skipDecryptionFlag)
 	go logMetrics(&state)
 
-	log.Printf("Listening on http://%s:%d/metrics\n", *hostFlag, *portFlag)
+	log.Printf("Listening on http://%s/metrics\n", net.JoinHostPort(*hostFlag, *portFlag))
 
 	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(fmt.Sprintf("%s:%d", *hostFlag, *portFlag), nil)
+	http.ListenAndServe(net.JoinHostPort(*hostFlag, *portFlag), nil)
 }
