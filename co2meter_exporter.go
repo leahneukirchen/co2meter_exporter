@@ -178,7 +178,9 @@ func logMetrics(s *envState) {
 		co2 := s.Co2()
 		t := s.Temperature()
 
-		log.Printf("CO2: %d ppm,\tTemperature: %.02f C\n", co2, t)
+		if !*quietFlag {
+			log.Printf("CO2: %d ppm,\tTemperature: %.02f C\n", co2, t)
+		}
 
 		co2Gauge.Set(float64(co2))
 		temperatureGauge.Set(t)
@@ -188,6 +190,7 @@ func logMetrics(s *envState) {
 var deviceFlag = flag.String("d", "", "device to get readings from")
 var hostFlag = flag.String("h", "::", "host to bind to")
 var portFlag = flag.String("p", "9200", "port to bind to")
+var quietFlag = flag.Bool("q", false, "quiet mode (no periodic output)")
 var skipDecryptionFlag = flag.Bool("skip-decryption", false, "skip value decryption. This is needed for some CO2 meter models.")
 
 func main() {
