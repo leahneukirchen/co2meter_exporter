@@ -13,7 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -27,35 +27,28 @@ const (
 	reportInterval  = time.Second * 5
 )
 
-type envState struct {
-	sync.RWMutex
-	co2         int
-	temperature float64
+var co2 atomic.Int32
+var raw_temperature atomic.Int32
+
+func Co2() float64 {
+	return float64(co2.Load())
 }
 
-func (s *envState) Co2() int {
-	s.RLock()
-	defer s.RUnlock()
-	return s.co2
+func Temperature() float64 {
+	return math.Round((float64(raw_temperature.Load())/16.0-273.15)*100) / 100
 }
 
-func (s *envState) setCo2(co2 int) {
-	s.Lock()
-	defer s.Unlock()
-	s.co2 = co2
-}
+var (
+	co2Gauge = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "co2meter_co2_ppms",
+		Help: "CO2 reading in PPM.",
+	}, Co2)
 
-func (s *envState) Temperature() float64 {
-	s.RLock()
-	defer s.RUnlock()
-	return s.temperature
-}
-
-func (s *envState) setTemperature(temperature float64) {
-	s.Lock()
-	defer s.Unlock()
-	s.temperature = temperature
-}
+	temperatureGauge = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "co2meter_temperature_celsius",
+		Help: "Temperature reading in degree celsius.",
+	}, Temperature)
+)
 
 func decryptReading(buffer []byte, key []byte) []byte {
 	var cstate = []byte{0x48, 0x74, 0x65, 0x6D, 0x70, 0x39, 0x39, 0x65}
@@ -119,7 +112,7 @@ func hidSetReport(source *os.File, key []byte) {
 	}
 }
 
-func getReadings(source *os.File, key []byte, s *envState, skipDecryption bool) {
+func getReadings(source *os.File, key []byte, skipDecryption bool) {
 	buffer := make([]byte, 8)
 
 	for {
@@ -130,10 +123,10 @@ func getReadings(source *os.File, key []byte, s *envState, skipDecryption bool) 
 		}
 
 		var code byte
-		var value int
+		var value int32
 		if skipDecryption {
 			code = buffer[0]
-			value = int(binary.BigEndian.Uint16(buffer[1:3]))
+			value = int32(binary.BigEndian.Uint16(buffer[1:3]))
 		} else {
 			decrypted := decryptReading(buffer, key)
 
@@ -143,47 +136,28 @@ func getReadings(source *os.File, key []byte, s *envState, skipDecryption bool) 
 			}
 
 			code = decrypted[0]
-			value = int(binary.BigEndian.Uint16(decrypted[1:3]))
+			value = int32(binary.BigEndian.Uint16(decrypted[1:3]))
 		}
 
 		switch code {
 		case 0x50:
 			// Got CO2 reading (code 0x50)
-			s.setCo2(value)
+			co2.Store(value)
 		case 0x42:
 			// Got temperature reading (code 0x42)
-			s.setTemperature(math.Round((float64(value)/16.0-273.15)*100) / 100)
+			raw_temperature.Store(value)
 		}
 		time.Sleep(readingInterval)
 	}
 }
 
-func logMetrics(s *envState) {
-	co2Gauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "co2meter_co2_ppms",
-		Help: "CO2 reading in PPM.",
-	})
-
-	temperatureGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "co2meter_temperature_celsius",
-		Help: "Temperature reading in degree celsius.",
-	})
-
-	prometheus.MustRegister(temperatureGauge)
-	prometheus.MustRegister(co2Gauge)
-
+func logMetrics() {
 	for {
 		time.Sleep(reportInterval)
 
-		co2 := s.Co2()
-		t := s.Temperature()
-
 		if !*quietFlag {
-			log.Printf("CO2: %d ppm,\tTemperature: %.02f C\n", co2, t)
+			log.Printf("CO2: %.0f ppm,\tTemperature: %.02f C\n", Co2(), Temperature())
 		}
-
-		co2Gauge.Set(float64(co2))
-		temperatureGauge.Set(t)
 	}
 }
 
@@ -195,7 +169,6 @@ var skipDecryptionFlag = flag.Bool("skip-decryption", false, "skip value decrypt
 
 func main() {
 	var key [8]byte
-	var state envState
 
 	flag.Parse()
 
@@ -213,8 +186,11 @@ func main() {
 
 	hidSetReport(source, key[:])
 
-	go getReadings(source, key[:], &state, *skipDecryptionFlag)
-	go logMetrics(&state)
+	prometheus.MustRegister(temperatureGauge)
+	prometheus.MustRegister(co2Gauge)
+
+	go getReadings(source, key[:], *skipDecryptionFlag)
+	go logMetrics()
 
 	log.Printf("Listening on http://%s/metrics\n", net.JoinHostPort(*hostFlag, *portFlag))
 
