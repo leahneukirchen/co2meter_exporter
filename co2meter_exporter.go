@@ -219,5 +219,6 @@ func main() {
 	log.Printf("Listening on http://%s/metrics\n", net.JoinHostPort(*hostFlag, *portFlag))
 
 	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(net.JoinHostPort(*hostFlag, *portFlag), nil)
+	err = http.ListenAndServe(net.JoinHostPort(*hostFlag, *portFlag), nil)
+	log.Fatal(err)
 }
