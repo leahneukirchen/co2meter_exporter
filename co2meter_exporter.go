@@ -154,10 +154,7 @@ func getReadings(source *os.File, key []byte, skipDecryption bool) {
 func logMetrics() {
 	for {
 		time.Sleep(reportInterval)
-
-		if !*quietFlag {
-			log.Printf("CO2: %.0f ppm,\tTemperature: %.02f C\n", Co2(), Temperature())
-		}
+		log.Printf("CO2: %.0f ppm,\tTemperature: %.02f C\n", Co2(), Temperature())
 	}
 }
 
@@ -190,7 +187,9 @@ func main() {
 	prometheus.MustRegister(co2Gauge)
 
 	go getReadings(source, key[:], *skipDecryptionFlag)
-	go logMetrics()
+	if !*quietFlag {
+		go logMetrics()
+	}
 
 	log.Printf("Listening on http://%s/metrics\n", net.JoinHostPort(*hostFlag, *portFlag))
 
